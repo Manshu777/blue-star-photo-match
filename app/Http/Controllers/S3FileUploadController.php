@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Photo;
@@ -8,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+
 class S3FileUploadController extends Controller
 {
     public function showForm()
@@ -29,7 +31,7 @@ class S3FileUploadController extends Controller
                     'title'    => $photo['title'],
                     'id'       => $photo['id'],
                     'location' => $photo['location'] ?? 'No Location',
-                   'tags'     => $photo['tags'] ? array_map('trim', explode(',', $photo['tags'])) : [],
+                    'tags'     => $photo['tags'] ? array_map('trim', explode(',', $photo['tags'])) : [],
                     'date'     => $photo['date'] ? \Carbon\Carbon::parse($photo['date'])->diffForHumans() : '',
                 ];
             }, $eventPhotos);
@@ -37,19 +39,21 @@ class S3FileUploadController extends Controller
 
         // Get 10 most recent uploads
         $recentUploads = Photo::where('user_id', $user->id)
-            ->latest()
-            ->take(10)
-            ->get()
-            ->map(function ($photo) {
-                return [
-                    'url'      => Storage::disk('s3')->url($photo->image_path),
-                    'title'    => $photo->title,
-                    'id'       => $photo->id,
-                    'location' => $photo->location ?? 'No Location',
-                  'tags'     => $photo['tags'] ? array_map('trim', explode(',', $photo['tags'])) : [],
-                    'date'     => $photo->date ? \Carbon\Carbon::parse($photo->date)->diffForHumans() : '',
-                ];
-            });
+    ->latest()
+    ->take(10)
+    ->get()
+    ->map(function ($photo) {
+        return [
+            'url'      => Storage::disk('s3')->url($photo->image_path),
+            'title'    => $photo->title,
+            'id'       => $photo->id,
+            'location' => $photo->location ?? 'No Location',
+            'tags'     => $photo['tags'] ? array_map('trim', explode(',', $photo['tags'])) : [],
+            'date'     => $photo->date ? \Carbon\Carbon::parse($photo->date)->diffForHumans() : '',
+           'event' => $photo->event ?: 'Uncategorized',
+        ];
+    });
+
 
         // Calculate totals and usage
         $totalUploads = Photo::where('user_id', $user->id)->count();
@@ -64,7 +68,7 @@ class S3FileUploadController extends Controller
         $dailyUploadLimit = $plan->photo_upload_limit ?? 0; // 0 for unlimited
         $dailyUploadUsagePercent = $dailyUploadLimit > 0 ? round(($todayUploads / $dailyUploadLimit) * 100, 2) : 0;
 
-                                          // Additional stats
+        // Additional stats
         $totalEvents = count($photos); // Number of unique events/albums
         $featuredPhotos = Photo::where('user_id', $user->id)
             ->where('is_featured', true)
@@ -88,85 +92,100 @@ class S3FileUploadController extends Controller
             'photosWithFaces',
             'plan'
         ));
-
     }
 
-    public function index(Request $request)
-    {
-
-    }
+    public function index(Request $request) {}
 
     public function upload(Request $request)
     {
         try {
-            // Validate the incoming file
+            // Multiple files validation
             $request->validate([
-                'file' => 'required|file|mimes:jpg,jpeg,png,pdf,doc,docx|max:20480',
+                'files' => 'required|array',
+                'files.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,mp4,mov|max:20480', // 20MB
+                'title' => 'nullable|string|max:255',
+                'folder_name' => 'nullable|string|max:255',
+                'description' => 'nullable|string',
+                'tags' => 'nullable|string',
+                'tour_provider' => 'nullable|string|max:255',
+                'location' => 'nullable|string|max:255',
+                'is_featured' => 'nullable|boolean',
             ]);
 
-            // Get the file from the request
-            $file = $request->file('file');
-
-            // Ensure the file is valid
-            if (! $file->isValid()) {
-                \Log::error('Invalid file uploaded: ' . $file->getErrorMessage());
-                return $request->expectsJson()
-                ? response()->json(['success' => false, 'message' => 'Invalid file uploaded.'], 422)
-                : redirect()->route('upload.form')->with('error', 'Invalid file uploaded.');
-            }
-
-            // Generate a unique filename
-            $fileName  = Str::random(40) . '.' . $file->getClientOriginalExtension();
+            $user = Auth::user();
+            $uploaded = [];
             $directory = 'uploads';
 
-            // Log file details
-            \Log::info('Attempting S3 upload', [
-                'original_name' => $file->getClientOriginalName(),
-                'size'          => $file->getSize(),
-                'mime'          => $file->getMimeType(),
-                'target_path'   => $directory . '/' . $fileName,
-                'bucket'        => config('filesystems.disks.s3.bucket'),
-                'region'        => config('filesystems.disks.s3.region'),
-            ]);
+            foreach ($request->file('files') as $file) {
+                if (!$file->isValid()) {
+                    \Log::error('Invalid file uploaded: ' . $file->getErrorMessage());
+                    continue;
+                }
 
-            // Store the file in S3 without specifying ACL
-            $path = Storage::disk('s3')->putFileAs(
-                $directory,
-                $file,
-                $fileName
-            );
+                $fileName = Str::random(40) . '.' . $file->getClientOriginalExtension();
 
-            // Verify the path is not empty
-            if (empty($path)) {
-                \Log::error('S3 upload failed: Empty path returned');
-                return $request->expectsJson()
-                ? response()->json(['success' => false, 'message' => 'Failed to generate S3 file path.'], 500)
-                : redirect()->route('upload.form')->with('error', 'Failed to generate S3 file path.');
+                \Log::info('Attempting S3 upload', [
+                    'original_name' => $file->getClientOriginalName(),
+                    'size'          => $file->getSize(),
+                    'mime'          => $file->getMimeType(),
+                    'target_path'   => $directory . '/' . $fileName,
+                    'bucket'        => config('filesystems.disks.s3.bucket'),
+                    'region'        => config('filesystems.disks.s3.region'),
+                ]);
+
+                // Upload to S3
+                $path = Storage::disk('s3')->putFileAs($directory, $file, $fileName);
+
+                if (empty($path)) {
+                    \Log::error('S3 upload failed: Empty path returned');
+                    continue;
+                }
+
+                // Get public URL (doesn't force an existence check)
+                $url = Storage::disk('s3')->url($path);
+
+                // OPTIONAL: persist to DB if you have Photo model/columns
+                if (class_exists(\App\Models\Photo::class)) {
+                    Photo::create([
+                        'user_id'     => $user->id,
+                        'image_path'  => $path,
+                        'title'       => $request->input('title') ?: pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME),
+                        'event'       => $request->input('folder_name'),
+                        'description' => $request->input('description'),
+                        'tags'        => $request->input('tags'),
+                        'tour_provider' => $request->input('tour_provider'),
+                        'location'    => $request->input('location'),
+                        'is_featured' => (bool) $request->input('is_featured'),
+                        'file_size'   => round($file->getSize() / 1024, 2), // KB or keep MB as per your schema
+                        'date'        => now(),
+                    ]);
+                }
+
+                $uploaded[] = ['path' => $path, 'url' => $url];
             }
 
-            // Get the full URL of the uploaded file
-            $url = Storage::disk('s3')->url($path);
+            if (empty($uploaded)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No files were uploaded.'
+                ], 422);
+            }
 
-            \Log::info('S3 upload successful', ['path' => $path, 'url' => $url]);
-
-            return $request->expectsJson()
-            ? response()->json(['success' => true, 'message' => 'File uploaded successfully', 'url' => $url, 'path' => $path])
-            : redirect()->route('upload.form')->with(['success' => 'File uploaded successfully', 'url' => $url]);
-
+            return response()->json([
+                'success' => true,
+                'message' => 'Files uploaded successfully',
+                'files'   => $uploaded,
+            ], 201);
         } catch (AwsException $e) {
             \Log::error('S3 AWS Exception: ' . $e->getMessage(), [
                 'aws_error'   => $e->getAwsErrorCode(),
                 'aws_message' => $e->getAwsErrorMessage(),
                 'trace'       => $e->getTraceAsString(),
             ]);
-            return $request->expectsJson()
-            ? response()->json(['success' => false, 'message' => 'S3 upload failed: ' . $e->getMessage()], 500)
-            : redirect()->route('upload.form')->with('error', 'S3 upload failed: ' . $e->getMessage());
-        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'S3 upload failed: ' . $e->getMessage()], 500);
+        } catch (\Throwable $e) {
             \Log::error('S3 Upload Error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-            return $request->expectsJson()
-            ? response()->json(['success' => false, 'message' => 'File upload failed: ' . $e->getMessage()], 500)
-            : redirect()->route('upload.form')->with('error', 'File upload failed: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Upload failed: ' . $e->getMessage()], 500);
         }
     }
 }
