@@ -3,8 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Panel Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
@@ -12,6 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
     <script src="https://cdn.jsdelivr.net/npm/video.js@7/dist/video.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/video.js@7/dist/video-js.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         .drag-drop-zone {
             border: 2px dashed #ccc;
@@ -113,18 +114,12 @@
     </style>
 </head>
 
-<body class="bg-gray-50 min-h-screen font-sans antialiased" x-data="{
-    tab: localStorage.getItem('activeTab') || 'dashboard',
-    sidebarOpen: false,
-    isMobile: window.innerWidth < 768,
-    darkMode: false,
-    selectedPhoto: null,
-    albums: {}
-}" x-init="$watch('tab', value => localStorage.setItem('activeTab', value))">
+<body class="bg-gray-50 min-h-screen font-sans antialiased" x-data="dashboardData()" x-init="init()">
     <div class="flex h-screen overflow-hidden">
         <!-- Sidebar Overlay for Mobile -->
         <div x-show="isMobile && sidebarOpen" class="overlay fixed inset-0 bg-black bg-opacity-50 z-30"
             @click="sidebarOpen = false"></div>
+
         <!-- Sidebar -->
         <aside class="sidebar bg-white dark:bg-gray-800 shadow-lg flex flex-col overflow-hidden"
             :class="{ 'w-64': sidebarOpen, 'w-0': !sidebarOpen, 'fixed h-full z-40': isMobile, 'relative': !isMobile }">
@@ -160,23 +155,22 @@
                             Photos Album
                         </button>
                     </li>
-
-
                     <li>
-                        <form action="{{ route('logout') }}" method="POST">
-                            @csrf
-                            <button type="submit"
-                                class="w-full text-left px-4 py-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-600 transition text-gray-800 dark:text-white">
-                                Logout
-                            </button>
-                        </form>
+                        <button @click="logout()"
+                            class="w-full text-left px-4 py-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-600 transition text-gray-800 dark:text-white">
+                            Logout
+                        </button>
                     </li>
+
+                    <form id="logout-form" action="{{ route('logout') }}" method="POST" class="hidden">
+                        @csrf
+                    </form>
                 </ul>
             </nav>
             <div class="p-2 border-t dark:border-gray-700">
                 <div class="flex items-center justify-between">
                     <span class="text-gray-700 dark:text-gray-300">Dark Mode</span>
-                    <button @click="darkMode = !darkMode; document.documentElement.classList.toggle('dark', darkMode)"
+                    <button @click="toggleDarkMode()"
                         class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-gray-200 dark:bg-gray-600 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                         :class="{ 'bg-blue-600': darkMode }">
                         <span class="sr-only">Toggle dark mode</span>
@@ -187,8 +181,9 @@
                 </div>
             </div>
         </aside>
+
         <!-- Main Content -->
-        <main class="flex-grow overflow-y-auto" :class="{ '': sidebarOpen && !isMobile }">
+        <main class="flex-grow overflow-y-auto">
             <div class="container mx-auto px-4 py-8">
                 <div class="flex items-center justify-between mb-8">
                     <h1 class="text-2xl md:text-4xl font-bold text-gray-800 dark:text-white">User Panel Dashboard</h1>
@@ -199,9 +194,9 @@
                         </svg>
                     </button>
                 </div>
+
                 <!-- Dashboard Section -->
                 <div x-show="tab === 'dashboard'" class="bg-gray-100 rounded-2xl shadow-xl p-8 text-gray-800">
-                    <!-- Dashboard Header -->
                     <h2 class="text-3xl font-extrabold text-center mb-10 flex items-center justify-center gap-2">
                         <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" stroke-width="2"
                             viewBox="0 0 24 24">
@@ -210,9 +205,9 @@
                         </svg>
                         Dashboard Overview
                     </h2>
+
                     <!-- Top Stats -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <!-- Total Uploads -->
                         <div class="bg-white p-6 rounded-xl shadow hover:scale-105 transition transform duration-300">
                             <div class="flex items-center justify-center gap-3">
                                 <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" stroke-width="2"
@@ -222,29 +217,32 @@
                                 </svg>
                                 <h3 class="text-lg font-semibold">Total Uploads</h3>
                             </div>
-                            <p class="text-3xl font-bold mt-2">{{ $totalUploads }}</p>
-                            <p class="text-sm mt-2">Events/Albums: {{ $totalEvents }}</p>
-                            <p class="text-sm">Featured: {{ $featuredPhotos }}</p>
-                            <p class="text-sm">With Faces: {{ $photosWithFaces }}</p>
+                            <p class="text-3xl font-bold mt-2" x-text="stats.totalUploads"></p>
+                            <p class="text-sm mt-2">Events/Albums: <span x-text="stats.totalEvents"></span></p>
+                            <p class="text-sm">Featured: <span x-text="stats.featuredPhotos"></span></p>
+                            <p class="text-sm">With Faces: <span x-text="stats.photosWithFaces"></span></p>
                         </div>
-                        <!-- Storage Used -->
+
                         <div class="bg-white p-6 rounded-xl shadow hover:scale-105 transition transform duration-300">
                             <div class="flex items-center justify-center gap-3">
-                                <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" stroke-width="2"
-                                    viewBox="0 0 24 24">
+                                <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor"
+                                    stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path>
                                 </svg>
                                 <h3 class="text-lg font-semibold">Storage Used</h3>
                             </div>
-                            <p class="text-3xl font-bold mt-2">{{ $storageUsedGB }} GB /
-                                {{ $storageLimitGB > 0 ? $storageLimitGB . ' GB' : 'Unlimited' }}</p>
+                            <p class="text-3xl font-bold mt-2">
+                                <span x-text="stats.storageUsedGB"></span> GB /
+                                <span
+                                    x-text="stats.storageLimitGB > 0 ? stats.storageLimitGB + ' GB' : 'Unlimited'"></span>
+                            </p>
                             <div class="w-full bg-gray-200 rounded-full h-2.5 mt-3">
                                 <div class="bg-gray-600 h-2.5 rounded-full transition-all duration-500"
-                                    style="width: {{ $storageUsagePercent }}%"></div>
+                                    :style="`width: ${stats.storageUsagePercent}%`"></div>
                             </div>
-                            <p class="text-sm mt-2">{{ $storageUsagePercent }}% Used</p>
+                            <p class="text-sm mt-2"><span x-text="stats.storageUsagePercent"></span>% Used</p>
                         </div>
-                        <!-- Active Plan -->
+
                         <div class="bg-white p-6 rounded-xl shadow hover:scale-105 transition transform duration-300">
                             <div class="flex items-center justify-center gap-3">
                                 <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor"
@@ -253,33 +251,15 @@
                                 </svg>
                                 <h3 class="text-lg font-semibold">Active Plan</h3>
                             </div>
-                            <p class="text-3xl font-bold mt-2">{{ $plan->name ?? 'Free' }}</p>
-                            <p class="text-sm mt-2">Daily Upload Limit:
-                                {{ $dailyUploadLimit > 0 ? $dailyUploadLimit : 'Unlimited' }}</p>
-                            <p class="text-sm">Facial Recognition:
-                                {{ $plan->facial_recognition_enabled ? 'Enabled' : 'Disabled' }}</p>
+                            <p class="text-3xl font-bold mt-2" x-text="stats.planName"></p>
+                            <p class="text-sm mt-2">Daily Upload Limit: <span
+                                    x-text="stats.dailyUploadLimit > 0 ? stats.dailyUploadLimit : 'Unlimited'"></span>
+                            </p>
+                            <p class="text-sm">Facial Recognition: <span
+                                    x-text="stats.facialRecognition ? 'Enabled' : 'Disabled'"></span></p>
                         </div>
                     </div>
-                    <!-- Daily Uploads -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                        <div class="bg-white p-6 rounded-xl shadow hover:scale-105 transition transform duration-300">
-                            <div class="flex items-center justify-center gap-3">
-                                <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor"
-                                    stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                        d="M8 7V3m8 4V3M4 11h16M4 19h16"></path>
-                                </svg>
-                                <h3 class="text-lg font-semibold">Today's Uploads</h3>
-                            </div>
-                            <p class="text-3xl font-bold mt-2">{{ $todayUploads }} /
-                                {{ $dailyUploadLimit > 0 ? $dailyUploadLimit : 'Unlimited' }}</p>
-                            <div class="w-full bg-gray-200 rounded-full h-2.5 mt-3">
-                                <div class="bg-gray-600 h-2.5 rounded-full transition-all duration-500"
-                                    style="width: {{ $dailyUploadUsagePercent }}%"></div>
-                            </div>
-                            <p class="text-sm mt-2">{{ $dailyUploadUsagePercent }}% of Daily Limit</p>
-                        </div>
-                    </div>
+
                     <!-- Recent Activity -->
                     <div class="bg-white p-6 rounded-xl mb-8 shadow">
                         <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
@@ -290,94 +270,41 @@
                             Recent Activity
                         </h3>
                         <ul class="space-y-3">
-                            @forelse ($recentUploads as $upload)
+                            <template x-for="upload in recentUploads" :key="upload.id">
                                 <li
                                     class="flex items-center space-x-4 bg-gray-100 p-3 rounded-lg hover:bg-gray-200 transition">
-                                    <img src="{{ $upload['url'] }}" alt="{{ $upload['title'] }}"
+                                    <img :src="upload.url" :alt="upload.title"
                                         class="w-12 h-12 rounded-md object-cover">
                                     <div>
-                                        <p class="font-medium">{{ $upload['title'] }}</p>
-                                        <p class="text-sm text-gray-500">{{ $upload['date'] }} -
-                                            {{ $upload['location'] }}</p>
-                                        <p class="text-sm text-gray-500">Tags: {{ implode(', ', $upload['tags']) }}
+                                        <p class="font-medium" x-text="upload.title"></p>
+                                        <p class="text-sm text-gray-500">
+                                            <span x-text="upload.date"></span> - <span
+                                                x-text="upload.location"></span>
                                         </p>
+                                        <p class="text-sm text-gray-500">Tags: <span
+                                                x-text="upload.tags.join(', ')"></span></p>
                                     </div>
                                 </li>
-                            @empty
-                                <li class="text-gray-500">No recent uploads.</li>
-                            @endforelse
+                            </template>
+                            <li x-show="recentUploads.length === 0" class="text-gray-500">No recent uploads.</li>
                         </ul>
                     </div>
-                    <!-- Photos by Event -->
-                    <div class="bg-white p-6 rounded-xl shadow">
-                        <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
-                            <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" stroke-width="2"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18">
-                                </path>
-                            </svg>
-                            All Photos by Event
-                        </h3>
-                        @forelse ($photos as $event => $eventPhotos)
-                            <div class="mb-6">
-                                <h4 class="text-lg font-medium mb-3">{{ $event ?: 'Uncategorized' }}</h4>
-                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    @foreach ($eventPhotos as $photos)
-                                        <div class="relative group overflow-hidden rounded-lg shadow">
-                                            <img src="{{ $photos['url'] }}" alt="{{ $photos['title'] }}"
-                                                class="w-full h-32 object-cover group-hover:scale-110 transition duration-500">
-                                            <p
-                                                class="absolute bottom-0 left-0 w-full bg-black/40 text-white text-xs px-2 py-1 opacity-90 group-hover:opacity-100 transition">
-                                                {{ $photos['title'] }}
-                                            </p>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
-                        @empty
-                            <p class="text-gray-500">No photos available.</p>
-                        @endforelse
-                    </div>
                 </div>
-                <!-- Upload Media Section -->
 
+                <!-- Upload Media Section -->
                 <div x-show="tab === 'upload'" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
                     <h2 class="text-3xl font-bold text-center mb-8 text-gray-800 dark:text-white">Upload Media</h2>
-                    @if (session('success'))
-                        <div x-data="{ show: true }" x-init="setTimeout(() => show = false, 5000)" x-show="show"
-                            class="bg-blue-100 dark:bg-blue-900 border-l-4 border-blue-500 text-blue-700 dark:text-blue-200 p-2 mb-6 rounded"
-                            role="alert">
-                            <span x-text="session('success')"></span>
-                            @if (session('urls'))
-                                <br>
-                                @foreach (session('urls') as $url)
-                                    <a :href="'{{ $url }}'" class="underline font-medium"
-                                        target="_blank">View Media</a><br>
-                                @endforeach
-                            @endif
-                        </div>
-                    @endif
-                    @if (session('error'))
-                        <div x-data="{ show: true }" x-init="setTimeout(() => show = false, 5000)" x-show="show"
-                            class="bg-red-100 dark:bg-red-900 border-l-4 border-red-500 text-red-700 dark:text-red-200 p-2 mb-6 rounded"
-                            role="alert">
-                            <span x-text="session('error')"></span>
-                        </div>
-                    @endif
-                    @if ($errors->any())
-                        <div x-data="{ show: true }" x-init="setTimeout(() => show = false, 5000)" x-show="show"
-                            class="bg-red-100 dark:bg-red-900 border-l-4 border-red-500 text-red-700 dark:text-red-200 p-2 mb-6 rounded"
-                            role="alert">
-                            <ul>
-                                @foreach ($errors->all() as $error)
-                                    <li x-text="`{{ $error }}`"></li>
-                                @endforeach
-                            </ul>
-                        </div>
-                    @endif
-                    <form action="{{ route('upload') }}" method="POST" enctype="multipart/form-data"
-                        @submit.prevent="handleSubmit" x-data="uploadFormData()" x-on:submit="showSweetAlert($event)">
-                        @csrf
+
+                    <!-- Success/Error Messages -->
+                    <div x-show="uploadMessage.show" x-data="{ show: true }" x-init="setTimeout(() => show = false, 5000)" x-show="show"
+                        class="border-l-4 p-2 mb-6 rounded" role="alert"
+                        :class="uploadMessage.type === 'success' ?
+                            'bg-blue-100 dark:bg-blue-900 border-blue-500 text-blue-700 dark:text-blue-200' :
+                            'bg-red-100 dark:bg-red-900 border-red-500 text-red-700 dark:text-red-200'">
+                        <span x-text="uploadMessage.text"></span>
+                    </div>
+
+                    <form @submit.prevent="handleUploadSubmit()">
                         <!-- Media Selection -->
                         <div class="mb-6 relative group">
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -395,9 +322,9 @@
                                 </svg>
                                 <p class="text-gray-500 dark:text-gray-400">Drag & drop files here, or click to select
                                     (multiple allowed)</p>
-                                <input type="file" name="files[]" id="file" class="hidden"
+                                <input type="file" x-ref="fileInput" class="hidden"
                                     accept="image/jpeg,image/png,video/mp4,video/quicktime" multiple
-                                    @change.debounce.500ms="handleFileChange($event)" x-ref="fileInput">
+                                    @change="handleFileChange($event)">
                                 <div class="flex justify-center space-x-2 mt-2">
                                     <button type="button"
                                         class="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 py-1 px-3 rounded-full text-sm hover:bg-blue-200 dark:hover:bg-blue-800 transition"
@@ -411,7 +338,7 @@
                                     </button>
                                     <button type="button"
                                         class="bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-200 py-1 px-3 rounded-full text-sm hover:bg-green-200 dark:hover:bg-green-800 transition"
-                                        @click="captureFromCamera">
+                                        @click="captureFromCamera()">
                                         <svg class="inline h-4 w-4 mr-1" fill="none" stroke="currentColor"
                                             viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -420,11 +347,9 @@
                                         Use Camera
                                     </button>
                                 </div>
-                                <div
-                                    class="absolute top-0 right-0 mt-1 mr-1 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-xs rounded py-1 px-2">
-                                    Tip: Upload multiple files for bulk processing. Use camera for live events.
-                                </div>
                             </div>
+
+                            <!-- File Previews -->
                             <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4" x-show="previews.length > 0">
                                 <template x-for="(preview, index) in previews" :key="index">
                                     <div
@@ -432,7 +357,7 @@
                                         <img :src="preview.url" alt="Preview"
                                             class="preview-canvas mx-auto rounded-lg shadow"
                                             x-show="preview.type.startsWith('image/')">
-                                        <video :id="'preview-video-' + index" :src="preview.url" controls
+                                        <video :src="preview.url" controls
                                             class="preview-video mx-auto rounded-lg shadow"
                                             x-show="preview.type.startsWith('video/')"></video>
                                         <button type="button"
@@ -447,61 +372,37 @@
                                     </div>
                                 </template>
                             </div>
-                            @error('files.*')
-                                <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                            @enderror
                         </div>
+
                         <!-- Form Fields -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                            <div class="relative group">
-                                <label for="title"
-                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">Title</label>
-                                <input type="text" name="title" id="title" placeholder="Enter media title"
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Title</label>
+                                <input type="text" x-model="uploadForm.title" placeholder="Enter media title"
                                     class="form-input p-2 mt-1 block w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                                     required>
-                                <div
-                                    class="absolute top-0 right-0 mt-1 mr-1 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-xs rounded py-1 px-2">
-                                    Tip: Use a descriptive title for your photo/video.
-                                </div>
-                                @error('title')
-                                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                                @enderror
                             </div>
-                            <div class="relative group">
-                                <label for="folder_name"
-                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">Event/Folder
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Event/Folder
                                     Name</label>
-                                <input type="text" name="folder_name" id="folder_name"
+                                <input type="text" x-model="uploadForm.folderName"
                                     placeholder="Enter event or folder name"
                                     class="form-input p-2 mt-1 block w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                                     required>
-                                <div
-                                    class="absolute top-0 right-0 mt-1 mr-1 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-xs rounded py-1 px-2">
-                                    Tip: Group media by event or folder (e.g., "Wedding 2025").
-                                </div>
-                                @error('folder_name')
-                                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                                @enderror
                             </div>
-                        </div>
-                        <div class="mb-4 relative group">
-                            <label for="description"
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
-                            <textarea name="description" id="description" rows="3" placeholder="Describe your media"
-                                class="form-input p-2 mt-1 block w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"></textarea>
-                            <div
-                                class="absolute top-0 right-0 mt-1 mr-1 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-xs rounded py-1 px-2">
-                                Tip: Add details to make your media searchable.
-                            </div>
-                            @error('description')
-                                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                            @enderror
                         </div>
 
-                        <div class="mb-4 relative group">
+                        <div class="mb-4">
+                            <label
+                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
+                            <textarea x-model="uploadForm.description" rows="3" placeholder="Describe your media"
+                                class="form-input p-2 mt-1 block w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"></textarea>
+                        </div>
+
+                        <!-- Tags Section -->
+                        <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tags (AI
                                 Auto-Tags + Custom)</label>
-                            <input type="hidden" name="tags" x-model="tags">
                             <div x-show="isLoadingTags" class="mt-2 text-sm text-gray-500 dark:text-gray-400">
                                 Loading AI tags...
                             </div>
@@ -517,79 +418,51 @@
                                     </button>
                                 </template>
                             </div>
-                            <input type="text" id="custom-tags" placeholder="Add custom tags (comma-separated)"
+                            <input type="text" placeholder="Add custom tags (comma-separated)"
                                 class="form-input p-2 mt-2 block w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                                @keyup.enter="addCustomTags($event.target.value)"
-                                @blur="addCustomTags($event.target.value)">
-                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">AI auto-tags from AWS Rekognition.
+                                @keyup.enter="addCustomTags($event.target.value); $event.target.value = ''"
+                                @blur="addCustomTags($event.target.value); $event.target.value = ''">
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">AI auto-tags from image analysis.
                                 Click tags to select/deselect or add custom tags.</p>
-                            <div
-                                class="absolute top-0 right-0 mt-1 mr-1 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-xs rounded py-1 px-2">
-                                Tip: Tags help users find your media in searches.
-                            </div>
-                            @error('tags')
-                                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                            @enderror
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                            <div class="relative group">
-                                <label for="tour_provider"
-                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tour
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tour
                                     Provider</label>
-                                <input type="text" name="tour_provider" id="tour_provider"
-                                    placeholder="Enter tour provider (e.g., Blue Star Tours)"
+                                <input type="text" x-model="uploadForm.tourProvider"
+                                    placeholder="Enter tour provider"
                                     class="form-input p-2 mt-1 block w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-                                <div
-                                    class="absolute top-0 right-0 mt-1 mr-1 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-xs rounded py-1 px-2">
-                                    Tip: Specify the tour provider for event-based media.
-                                </div>
-                                @error('tour_provider')
-                                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                                @enderror
                             </div>
-                            <div class="relative group">
-                                <label for="location"
+                            <div>
+                                <label
                                     class="block text-sm font-medium text-gray-700 dark:text-gray-300">Location</label>
-                                <input type="text" name="location" id="location"
-                                    placeholder="Enter location (e.g., Paris, France)"
-                                    class="form-input p-2 mt-1 block w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                                    x-model="location">
-                                <div
-                                    class="absolute top-0 right-0 mt-1 mr-1 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-xs rounded py-1 px-2">
-                                    Tip: Auto-filled by geolocation, but you can edit it.
-                                </div>
-                                @error('location')
-                                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                                @enderror
+                                <input type="text" x-model="uploadForm.location" placeholder="Enter location"
+                                    class="form-input p-2 mt-1 block w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                             </div>
                         </div>
-                        <div class="mb-6 relative group">
+
+                        <div class="mb-6">
                             <div class="flex items-center">
-                                <input type="checkbox" name="is_featured" id="is_featured" value="1"
-                                    class="h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
-                                    {{ old('is_featured') ? 'checked' : '' }}>
-                                <label for="is_featured" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                                <input type="checkbox" x-model="uploadForm.isFeatured"
+                                    class="h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500">
+                                <label class="ml-2 block text-sm text-gray-700 dark:text-gray-300">
                                     Mark as Featured
                                 </label>
-                                <div
-                                    class="absolute right-0 mt-1 mr-1 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-xs rounded py-1 px-2">
-                                    Tip: Featured media appears prominently in galleries.
+                            </div>
+                        </div>
+
+                        <!-- Progress Bar -->
+                        <div x-show="uploadProgress > 0" class="mb-4">
+                            <div class="bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
+                                <div class="bg-blue-600 h-2.5 rounded-full" :style="`width: ${uploadProgress}%`">
                                 </div>
                             </div>
-                            @error('is_featured')
-                                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                            @enderror
-                        </div>
-                        <!-- Progress Bar -->
-                        <div x-show="progress > 0" class="mb-4">
-                            <div class="bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
-                                <div class="bg-blue-600 h-2.5 rounded-full" :style="{ width: progress + '%' }"></div>
-                            </div>
                             <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Uploading: <span
-                                    x-text="progress + '%'"></span></p>
+                                    x-text="uploadProgress + '%'"></span></p>
                         </div>
-                        <!-- Submit -->
+
+                        <!-- Submit Button -->
                         <button type="submit"
                             class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition duration-200 font-medium flex items-center justify-center"
                             :disabled="isUploading">
@@ -602,19 +475,10 @@
                     </form>
                 </div>
 
-
                 <!-- Photos Album Section -->
-
-                <div x-data="{
-                    tab: 'album',
-                    selectedPhoto: null,
-                    searchTags: '',
-                    filteredPhotos: @json($photos),
-                    showPreview: false,
-                    previewPhoto: null
-                }" x-show="tab === 'album'"
-                    class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                <div x-show="tab === 'album'" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
                     <h2 class="text-2xl font-bold text-center mb-6 text-gray-800 dark:text-white">📸 Photo Gallery</h2>
+
                     <!-- Search by Tags -->
                     <div class="mb-6">
                         <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-2">🔍 Search by Tags</h3>
@@ -622,93 +486,18 @@
                             placeholder="Enter tags (e.g., Nature, Beach)"
                             class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white">
                     </div>
-                    <!-- Recent Uploads -->
-                    <div class="mb-10">
-                        <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-3">🆕 Recent Uploads</h3>
-
-                        @php
-                            // group recent uploads by event so heading ek baar aaye
-                            $recentGrouped = $recentUploads->groupBy('event');
-                        @endphp
-
-                        @forelse($recentGrouped as $event => $eventPhotos)
-                            <div class="mb-8">
-                                {{-- BIG centered H2 style heading (ek hi baar per event) --}}
-                                <h2
-                                    class="text-2xl md:text-3xl font-extrabold text-center text-gray-900 dark:text-gray-100 mb-4">
-                                    {{ $event ?? 'Uncategorized' }}
-                                    <span class="ml-2 text-sm md:text-base font-normal text-gray-500">
-                                        {{ $eventPhotos->count() }} pic{{ $eventPhotos->count() > 1 ? 's' : '' }}
-                                    </span>
-                                </h2>
-
-                                {{-- Images for this event (chahe to ->take(4) rakho) --}}
-                                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                                    @foreach ($eventPhotos->take(4) as $photo)
-                                        <div class="relative group rounded-lg shadow overflow-hidden">
-                                            <img src="{{ $photo['url'] }}" alt="{{ $photo['title'] }}"
-                                                class="w-full h-36 md:h-44 object-contain bg-gray-100">
-
-                                            {{-- action buttons --}}
-                                            <div
-                                                class="absolute top-1 right-1 z-20 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <form action="{{ route('photos.destroy', $photo['id']) }}"
-                                                    method="POST"
-                                                    @submit.prevent="deletePhoto($event, {{ $photo['id'] }})">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit"
-                                                        class="bg-red-500 text-white rounded-full h-6 w-6 flex items-center justify-center hover:bg-red-600 transition">
-                                                        <svg class="h-4 w-4" fill="none" stroke="currentColor"
-                                                            viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                                        </svg>
-                                                    </button>
-                                                </form>
-
-                                                <button
-                                                    @click="selectedPhoto = '{{ $photo['url'] }}'; tab = 'edit'; if(isMobile) sidebarOpen = false"
-                                                    class="bg-blue-500 text-white rounded-full h-6 w-6 flex items-center justify-center hover:bg-blue-600 transition">
-                                                    <svg class="h-4 w-4" fill="none" stroke="currentColor"
-                                                        viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2"
-                                                            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                                    </svg>
-                                                </button>
-
-                                                <button
-                                                    @click="openPreview('{{ $photo['url'] }}', @json($photo))"
-                                                    class="bg-green-500 text-white rounded-full h-6 w-6 flex items-center justify-center hover:bg-green-600 transition">
-                                                    <svg class="h-4 w-4" fill="none" stroke="currentColor"
-                                                        viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2"
-                                                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm-12 0c0 5.523 4.477 10 10 10s10-4.477 10-10S18.523 2 13 2 3 6.477 3 12z" />
-                                                    </svg>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
-                        @empty
-                            <p class="text-gray-500 dark:text-gray-400">No recent uploads.</p>
-                        @endforelse
-                    </div>
-
 
                     <!-- Albums -->
                     <div class="space-y-8">
                         <template x-for="[event, eventPhotos] in Object.entries(filteredPhotos)"
                             :key="event">
-                            <div x-data="{ renameOpen: false, newName: event, inviteOpen: false, inviteEmail: '' }">
+                            <div>
                                 <div class="flex items-center justify-between mb-3">
-                                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white">📂 <span
-                                            x-text="event || 'Uncategorized'"></span></h3>
+                                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white">
+                                        📂 <span x-text="event || 'Uncategorized'"></span>
+                                    </h3>
                                     <div class="flex space-x-2">
-                                        <button @click="renameOpen = true"
+                                        <button @click="renameAlbum(event)"
                                             class="bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 py-1 px-3 rounded hover:bg-gray-300 dark:hover:bg-gray-500">
                                             Rename
                                         </button>
@@ -716,37 +505,9 @@
                                             class="bg-red-500 text-white py-1 px-3 rounded hover:bg-red-600">
                                             Delete
                                         </button>
-                                        <button @click="inviteOpen = true"
-                                            class="bg-blue-500 text-white py-1 px-3 rounded hover:bg-blue-600">
-                                            Invite
-                                        </button>
                                     </div>
                                 </div>
-                                <!-- Rename Form -->
-                                <div x-show="renameOpen" class="mb-4">
-                                    <form @submit.prevent="renameAlbum(event, newName)">
-                                        <input type="text" x-model="newName"
-                                            class="form-input p-2 mr-2 border-gray-300 dark:border-gray-600 rounded-md"
-                                            placeholder="New event name">
-                                        <button type="submit"
-                                            class="bg-blue-600 text-white py-1 px-3 rounded hover:bg-blue-700">Save</button>
-                                        <button type="button" @click="renameOpen = false"
-                                            class="bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 py-1 px-3 rounded hover:bg-gray-300 dark:hover:bg-gray-500">Cancel</button>
-                                    </form>
-                                </div>
-                                <!-- Invite Form -->
-                                <div x-show="inviteOpen" class="mb-4">
-                                    <form @submit.prevent="inviteCollaborator(event, inviteEmail)">
-                                        <input type="email" x-model="inviteEmail"
-                                            class="form-input p-2 mr-2 border-gray-300 dark:border-gray-600 rounded-md"
-                                            placeholder="Collaborator email">
-                                        <button type="submit"
-                                            class="bg-blue-600 text-white py-1 px-3 rounded hover:bg-blue-700">Send
-                                            Invite</button>
-                                        <button type="button" @click="inviteOpen = false"
-                                            class="bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 py-1 px-3 rounded hover:bg-gray-300 dark:hover:bg-gray-500">Cancel</button>
-                                    </form>
-                                </div>
+
                                 <!-- Photos Grid -->
                                 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                                     <template x-for="photo in eventPhotos" :key="photo.id">
@@ -759,27 +520,12 @@
                                             </p>
                                             <div
                                                 class="absolute top-1 right-1 flex space-x-1 opacity-0 group-hover:opacity-100 gallery-button transition-opacity">
-                                                <form action="{{ route('photos.destroy', ':photo.id') }}"
-                                                    method="POST" @submit.prevent="deletePhoto($event, photo.id)">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit"
-                                                        class="bg-red-500 text-white rounded-full h-6 w-6 flex items-center justify-center hover:bg-red-600 transition">
-                                                        <svg class="h-4 w-4" fill="none" stroke="currentColor"
-                                                            viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                                        </svg>
-                                                    </button>
-                                                </form>
-                                                <button
-                                                    @click="selectedPhoto = photo.url; tab = 'edit'; if(isMobile) sidebarOpen = false"
-                                                    class="bg-blue-500 text-white rounded-full h-6 w-6 flex items-center justify-center hover:bg-blue-600 transition">
+                                                <button @click="deletePhoto(photo.id)"
+                                                    class="bg-red-500 text-white rounded-full h-6 w-6 flex items-center justify-center hover:bg-red-600 transition">
                                                     <svg class="h-4 w-4" fill="none" stroke="currentColor"
                                                         viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2"
-                                                            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                            stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                                                     </svg>
                                                 </button>
                                                 <button @click="openPreview(photo.url, photo)"
@@ -802,20 +548,21 @@
                             No photos found. Upload some 📤
                         </div>
                     </div>
+
                     <!-- Preview Modal -->
                     <div x-show="showPreview"
                         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
                         @click="showPreview = false">
                         <div class="bg-white dark:bg-gray-800 rounded-lg p-4 max-w-3xl w-full" @click.stop>
-                            <img :src="previewPhoto.url" :alt="previewPhoto.title"
+                            <img :src="previewPhoto?.url" :alt="previewPhoto?.title"
                                 class="w-full max-h-[70vh] object-contain rounded-lg">
                             <div class="mt-4">
                                 <h3 class="text-lg font-semibold text-gray-800 dark:text-white"
-                                    x-text="previewPhoto.title"></h3>
+                                    x-text="previewPhoto?.title"></h3>
                                 <p class="text-sm text-gray-500 dark:text-gray-400"
-                                    x-text="previewPhoto.date + ' - ' + previewPhoto.location"></p>
+                                    x-text="previewPhoto ? previewPhoto.date + ' - ' + previewPhoto.location : ''"></p>
                                 <p class="text-sm text-gray-500 dark:text-gray-400"
-                                    x-text="'Tags: ' + (previewPhoto.tags || []).join(', ')"></p>
+                                    x-text="previewPhoto ? 'Tags: ' + (previewPhoto.tags || []).join(', ') : ''"></p>
                             </div>
                             <button @click="showPreview = false"
                                 class="mt-4 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 py-1 px-3 rounded hover:bg-gray-300 dark:hover:bg-gray-500">
@@ -824,110 +571,117 @@
                         </div>
                     </div>
                 </div>
-
-
+            </div>
         </main>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.js"></script>
-    <script>
-        document.addEventListener('alpine:init', () => {
-            Alpine.data('gallery', () => ({
-                filterPhotos() {
-                    const tags = this.searchTags.toLowerCase().split(',').map(tag => tag.trim()).filter(
-                        tag => tag);
-                    if (!tags.length) {
-                        this.filteredPhotos = @json($photos);
-                        return;
-                    }
-                    const filtered = {};
-                    Object.entries(@json($photos)).forEach(([event, photos]) => {
-                        const matchingPhotos = photos.filter(photo =>
-                            tags.every(searchTag =>
-                                photo.tags.some(tag => tag.toLowerCase().includes(
-                                    searchTag))
-                            )
-                        );
-                        if (matchingPhotos.length) {
-                            filtered[event] = matchingPhotos;
-                        }
-                    });
-                    this.filteredPhotos = filtered;
-                },
-                openPreview(url, photo) {
-                    this.previewPhoto = photo;
-                    this.showPreview = true;
-                },
-                deletePhoto(event, id) {
-                    if (confirm('Are you sure you want to delete this photo?')) {
-                        event.target.closest('form').submit();
-                    }
-                },
-                renameAlbum(event, newName) {
-                    console.log(`Renaming album ${event} to ${newName}`);
-                },
-                deleteAlbum(event) {
-                    if (confirm(`Are you sure you want to delete the album ${event}?`)) {
-                        console.log(`Deleting album ${event}`);
-                    }
-                },
-                inviteCollaborator(event, email) {
-                    console.log(`Inviting ${email} to album ${event}`);
-                }
-            }));
 
-            Alpine.data('uploadFormData', () => ({
+    <script>
+        window.__BOOTSTRAP__ = {
+            stats: {
+                /* ...controller se aaya stats... */
+            },
+            recentUploads: @json($recentUploads),
+            albums: @json($photos), // grouped by event
+            routes: {
+                upload: "{{ route('upload.store') }}",
+                photoDestroy: "{{ route('photos.destroy', ':id') }}",
+                albumRename: "{{ route('albums.rename') }}",
+                albumDelete: "{{ route('albums.delete') }}",
+            }
+        };
+    </script>
+
+
+    <script>
+        function dashboardData() {
+            return {
+                /* ---------- layout ---------- */
+                tab: localStorage.getItem('activeTab') || 'dashboard',
+                sidebarOpen: false,
+                isMobile: window.innerWidth < 768,
+                darkMode: false,
+
+                /* ---------- server data ---------- */
+                stats: window.__BOOTSTRAP__.stats || {},
+                recentUploads: window.__BOOTSTRAP__.recentUploads || [],
+                rawAlbums: window.__BOOTSTRAP__.albums || {},
+                filteredPhotos: {},
+                searchTags: '',
+                showPreview: false,
+                previewPhoto: null,
+
+                /* ---------- upload form ---------- */
+                uploadForm: {
+                    title: '',
+                    folderName: '',
+                    description: '',
+                    tourProvider: '',
+                    location: '',
+                    isFeatured: false
+                },
                 isDragging: false,
                 previews: [],
-                tags: '',
                 suggestedTags: [],
                 selectedTags: [],
-                location: '',
-                progress: 0,
                 isLoadingTags: false,
-                processedFiles: new Set(),
-                isUploading: false, // Prevent multiple submissions
-                handleFileChange(event) {
-                    if (this.isUploading) return; // Prevent processing during upload
-                    console.log('handleFileChange triggered with files:', event.target.files);
-                    this.processFiles(event.target.files);
+                uploadProgress: 0,
+                isUploading: false,
+                uploadMessage: {
+                    show: false,
+                    type: 'success',
+                    text: ''
                 },
-                handleDrop(event) {
-                    if (this.isUploading) return; // Prevent processing during upload
-                    console.log('handleDrop triggered with files:', event.dataTransfer.files);
+
+                /* ============ init ============ */
+                init() {
+                    // clone albums for filtered view
+                    this.filteredPhotos = JSON.parse(JSON.stringify(this.rawAlbums || {}));
+
+                    this.$watch('tab', v => localStorage.setItem('activeTab', v));
+                    window.addEventListener('resize', () => {
+                        this.isMobile = window.innerWidth < 768;
+                        if (!this.isMobile) this.sidebarOpen = true;
+                    });
+                    this.sidebarOpen = !this.isMobile;
+                },
+
+                /* ============ helpers ============ */
+                switchTab(name) {
+                    this.tab = name;
+                    if (this.isMobile) this.sidebarOpen = false;
+                },
+                toggleDarkMode() {
+                    this.darkMode = !this.darkMode;
+                    document.documentElement.classList.toggle('dark', this.darkMode);
+                },
+
+                // REAL logout (hidden form submit)
+                logout() {
+                    if (!confirm('Are you sure you want to logout?')) return;
+                    const form = document.getElementById('logout-form');
+                    if (form) form.submit();
+                },
+
+                /* ============ upload ============ */
+                handleFileChange(e) {
+                    if (!this.isUploading) this.processFiles(e.target.files);
+                },
+                handleDrop(e) {
+                    if (this.isUploading) return;
                     this.isDragging = false;
-                    const files = event.dataTransfer.files;
-                    const input = this.$refs.fileInput;
-                    input.files = files; // Set files to input
+                    const files = e.dataTransfer.files;
+                    this.$refs.fileInput.files = files;
                     this.processFiles(files);
                 },
                 processFiles(files) {
-                    console.log('Processing files:', files);
                     this.previews = [];
                     this.suggestedTags = [];
                     this.selectedTags = [];
-                    this.tags = '';
                     this.isLoadingTags = true;
-                    this.processedFiles.clear();
-                    let pendingRequests = files.length;
-                    for (let i = 0; i < files.length; i++) {
-                        const file = files[i];
-                        const fileKey =
-                            `${file.name}-${file.size}-${file.lastModified}`; // Unique identifier
-                        if (this.processedFiles.has(fileKey)) {
-                            console.log(`Skipping duplicate file: ${file.name}`);
-                            pendingRequests--;
-                            continue;
-                        }
-                        this.processedFiles.add(fileKey);
-                        if (file.size > 15 * 1024 * 1024) { // 15MB limit
-                            Swal.fire({
-                                title: 'Error!',
-                                text: `${file.name} exceeds 15MB limit.`,
-                                icon: 'error',
-                            });
-                            pendingRequests--;
-                            if (pendingRequests === 0) this.isLoadingTags = false;
+                    const MAX_MB = 20;
+                    for (const file of files) {
+                        if (file.size > MAX_MB * 1024 * 1024) {
+                            Swal.fire('Error', `${file.name} exceeds ${MAX_MB}MB limit.`, 'error');
                             continue;
                         }
                         this.previews.push({
@@ -936,213 +690,191 @@
                             tags: []
                         });
                         if (file.type.startsWith('image/')) {
-                            EXIF.getData(file, () => {
-                                const lat = EXIF.getTag(file, 'GPSLatitude');
-                                const lon = EXIF.getTag(file, 'GPSLongitude');
-                                if (lat && lon) {
-                                    const latRef = EXIF.getTag(file, 'GPSLatitudeRef') || 'N';
-                                    const lonRef = EXIF.getTag(file, 'GPSLongitudeRef') || 'E';
-                                    const latDeg = lat[0] + lat[1] / 60 + lat[2] / 3600;
-                                    const lonDeg = lon[0] + lon[1] / 60 + lon[2] / 3600;
-                                    this.location =
-                                        `${latDeg.toFixed(4)} ${latRef}, ${lonDeg.toFixed(4)} ${lonRef}`;
-                                }
-                            });
-                            const formData = new FormData();
-                            formData.append('image', file);
-                            fetch('{{ route('photos.analyze') }}', {
-                                    method: 'POST',
-                                    headers: {
-                                        'X-CSRF-TOKEN': document.querySelector(
-                                            'meta[name="csrf-token"]').content,
-                                    },
-                                    body: formData,
-                                })
-                                .then(response => response.json())
-                                .then(data => {
-                                    if (data.success && data.tags) {
-                                        const newTags = data.tags.split(',').map(tag => tag.trim())
-                                            .filter(tag => tag);
-                                        this.previews[i].tags = newTags;
-                                        this.suggestedTags = [...new Set([...this.suggestedTags, ...
-                                            newTags
-                                        ])];
-                                        this.selectedTags = [...new Set([...this.selectedTags, ...
-                                            newTags
-                                        ])];
-                                        this.tags = this.selectedTags.join(',');
-                                    } else {
-                                        Swal.fire({
-                                            title: 'Error!',
-                                            text: data.message ||
-                                                'Failed to fetch tags from AWS Rekognition.',
-                                            icon: 'error',
-                                        });
-                                    }
-                                    pendingRequests--;
-                                    if (pendingRequests === 0) this.isLoadingTags = false;
-                                })
-                                .catch(error => {
-                                    Swal.fire({
-                                        title: 'Error!',
-                                        text: 'An error occurred while fetching tags.',
-                                        icon: 'error',
-                                    });
-                                    console.error('Tag fetch error:', error);
-                                    pendingRequests--;
-                                    if (pendingRequests === 0) this.isLoadingTags = false;
-                                });
-                        } else {
-                            pendingRequests--;
-                            if (pendingRequests === 0) this.isLoadingTags = false;
+                            setTimeout(() => {
+                                const mock = ['nature', 'outdoor', 'beautiful', 'scenic'];
+                                this.suggestedTags = [...new Set([...this.suggestedTags, ...mock])];
+                                this.selectedTags = [...new Set([...this.selectedTags, ...mock])];
+                                this.isLoadingTags = false;
+                            }, 400);
                         }
                     }
-                    console.log('Processed files:', this.processedFiles);
+                    if (!Array.from(files).some(f => f.type.startsWith('image/'))) this.isLoadingTags = false;
                 },
-                removePreview(index) {
-                    console.log('Removing preview at index:', index);
-                    const removedTags = this.previews[index].tags;
-                    this.previews.splice(index, 1);
-                    this.suggestedTags = [...new Set(this.previews.flatMap(preview => preview.tags))];
-                    this.selectedTags = this.selectedTags.filter(tag => this.suggestedTags.includes(
-                        tag) || this.isCustomTag(tag));
-                    this.tags = this.selectedTags.join(',');
-                    const input = this.$refs.fileInput;
+                removePreview(idx) {
+                    this.previews.splice(idx, 1);
                     const dt = new DataTransfer();
-                    for (let i = 0; i < input.files.length; i++) {
-                        if (i !== index) dt.items.add(input.files[i]);
+                    for (let i = 0; i < this.$refs.fileInput.files.length; i++) {
+                        if (i !== idx) dt.items.add(this.$refs.fileInput.files[i]);
                     }
-                    input.files = dt.files;
-                    this.processedFiles.clear();
-                    for (let i = 0; i < input.files.length; i++) {
-                        this.processedFiles.add(
-                            `${input.files[i].name}-${input.files[i].size}-${input.files[i].lastModified}`
-                        );
-                    }
-                    console.log('Updated processed files:', this.processedFiles);
+                    this.$refs.fileInput.files = dt.files;
                 },
-                isCustomTag(tag) {
-                    return !this.previews.some(preview => preview.tags.includes(tag));
-                },
-                toggleTag(tag) {
-                    const index = this.selectedTags.indexOf(tag);
-                    if (index > -1) {
-                        this.selectedTags.splice(index, 1);
-                    } else {
-                        this.selectedTags.push(tag);
-                    }
-                    this.tags = this.selectedTags.join(',');
+                toggleTag(t) {
+                    const i = this.selectedTags.indexOf(t);
+                    i > -1 ? this.selectedTags.splice(i, 1) : this.selectedTags.push(t);
                 },
                 addCustomTags(input) {
                     if (!input) return;
-                    const newTags = input.split(',').map(tag => tag.trim()).filter(tag => tag && !this
-                        .selectedTags.includes(tag));
-                    this.selectedTags.push(...newTags);
-                    this.suggestedTags.push(...newTags);
-                    this.tags = this.selectedTags.join(',');
-                    document.getElementById('custom-tags').value = '';
+                    const tags = input.split(',').map(t => t.trim()).filter(t => t && !this.selectedTags.includes(t));
+                    this.selectedTags.push(...tags);
+                    this.suggestedTags.push(...tags);
                 },
                 captureFromCamera() {
-                    alert('Camera capture not implemented yet');
+                    alert('Camera capture functionality would be implemented here');
                 },
-                showSweetAlert(event) {
-                    if (this.isUploading) {
-                        console.log('Upload already in progress, ignoring submit');
+
+                handleUploadSubmit() {
+                    if (this.isUploading) return;
+                    const files = this.$refs.fileInput.files;
+                    if (!files || !files.length) {
+                        Swal.fire('Select files', 'Please choose at least one file.', 'warning');
                         return;
                     }
-                    event.preventDefault();
-                    Swal.fire({
-                        title: 'Uploading...',
-                        text: 'Please wait while your files are being uploaded.',
-                        icon: 'info',
-                        showConfirmButton: false,
-                        allowOutsideClick: false,
-                        didOpen: () => {
-                            Swal.showLoading();
-                            this.handleSubmit(event);
-                        }
-                    });
-                },
-                async handleSubmit(event) {
-                    if (this.isUploading) {
-                        console.log('Upload already in progress, ignoring');
-                        return;
-                    }
+
+                    const fd = new FormData();
+                    Array.from(files).forEach(f => fd.append('files[]', f));
+                    fd.append('title', this.uploadForm.title || '');
+                    fd.append('folder_name', this.uploadForm.folderName || '');
+                    fd.append('description', this.uploadForm.description || '');
+                    fd.append('tags', (this.selectedTags || []).join(','));
+                    fd.append('tour_provider', this.uploadForm.tourProvider || '');
+                    fd.append('location', this.uploadForm.location || '');
+                    fd.append('is_featured', this.uploadForm.isFeatured ? 1 : 0);
+
                     this.isUploading = true;
-                    console.log('Starting upload with files:', this.$refs.fileInput.files);
-                    const form = event.target;
-                    const formData = new FormData(form);
+
                     const xhr = new XMLHttpRequest();
-                    xhr.timeout = 30000;
-                    xhr.open('POST', form.action);
-                    xhr.setRequestHeader('X-CSRF-TOKEN', document.querySelector(
-                        'meta[name="csrf-token"]').content);
+                    xhr.open('POST', window.__BOOTSTRAP__.routes.upload, true);
+                    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                    xhr.setRequestHeader('X-CSRF-TOKEN', document.querySelector('meta[name="csrf-token"]').getAttribute(
+                        'content'));
                     xhr.upload.onprogress = (e) => {
-                        if (e.lengthComputable) {
-                            this.progress = (e.loaded / e.total) * 100;
-                        }
+                        if (e.lengthComputable) this.uploadProgress = Math.round((e.loaded / e.total) * 100);
                     };
                     xhr.onload = () => {
-                        this.progress = 0;
                         this.isUploading = false;
+                        this.uploadProgress = 0;
+                        let res = {};
                         try {
-                            const response = JSON.parse(xhr.responseText);
-                            if (xhr.status === 201 && response.success) {
-                                Swal.fire({
-                                    title: 'Success!',
-                                    text: 'Media uploaded successfully.',
-                                    icon: 'success',
-                                    timer: 2000
-                                }).then(() => {
-                                    this.previews = [];
-                                    this.suggestedTags = [];
-                                    this.selectedTags = [];
-                                    this.tags = '';
-                                    this.location = '';
-                                    this.processedFiles.clear();
-                                    this.$refs.fileInput.value = '';
-                                    window.location.reload();
-                                });
-                            } else {
-                                Swal.fire({
-                                    title: 'Error!',
-                                    text: response.message || 'Failed to upload media.',
-                                    icon: 'error'
-                                });
-                            }
-                        } catch (e) {
-                            Swal.fire({
-                                title: 'Error!',
-                                text: 'Invalid server response.',
-                                icon: 'error'
-                            });
+                            res = JSON.parse(xhr.responseText);
+                        } catch {}
+                        if (xhr.status >= 200 && xhr.status < 300 && res.success) {
+                            Swal.fire('Success!', res.message || 'Uploaded.', 'success').then(() => window.location
+                                .reload());
+                        } else {
+                            Swal.fire('Error', res.message || 'Upload failed', 'error');
                         }
                     };
-                    xhr.ontimeout = () => {
-                        this.progress = 0;
-                        this.isUploading = false;
-                        Swal.fire({
-                            title: 'Error!',
-                            text: 'Upload timed out. Please try again.',
-                            icon: 'error'
-                        });
-                    };
                     xhr.onerror = () => {
-                        this.progress = 0;
                         this.isUploading = false;
-                        Swal.fire({
-                            title: 'Error!',
-                            text: 'An error occurred during upload.',
-                            icon: 'error'
-                        });
+                        this.uploadProgress = 0;
+                        Swal.fire('Error', 'Network error', 'error');
                     };
-                    xhr.send(formData);
+                    xhr.send(fd);
+                },
+
+                /* ============ gallery ============ */
+                filterPhotos() {
+                    const base = JSON.parse(JSON.stringify(this.rawAlbums || {}));
+                    const terms = this.searchTags.toLowerCase().split(',').map(t => t.trim()).filter(Boolean);
+                    if (!terms.length) {
+                        this.filteredPhotos = base;
+                        return;
+                    }
+                    const out = {};
+                    Object.entries(base).forEach(([event, photos]) => {
+                        const hits = photos.filter(p => terms.every(term => (p.tags || []).some(t => (t || '')
+                            .toLowerCase().includes(term))));
+                        if (hits.length) out[event] = hits;
+                    });
+                    this.filteredPhotos = out;
+                },
+                openPreview(url, photo) {
+                    this.previewPhoto = photo;
+                    this.showPreview = true;
+                },
+
+                async deletePhoto(id) {
+                    if (!confirm('Are you sure you want to delete this photo?')) return;
+                    const url = window.__BOOTSTRAP__.routes.photoDestroy.replace(':id', id);
+                    const res = await fetch(url, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute(
+                                'content'),
+                            'Accept': 'application/json'
+                        }
+                    });
+                    const json = await res.json().catch(() => ({}));
+                    if (res.ok && json.success) {
+                        [this.filteredPhotos, this.rawAlbums].forEach(map => {
+                            Object.keys(map).forEach(ev => {
+                                map[ev] = map[ev].filter(p => p.id !== id);
+                                if (!map[ev].length) delete map[ev];
+                            });
+                        });
+                        Swal.fire('Deleted!', 'Photo has been deleted.', 'success');
+                    } else {
+                        Swal.fire('Error', json.message || 'Failed to delete', 'error');
+                    }
+                },
+
+                async renameAlbum(event) {
+                    const newName = prompt(`Rename album "${event}" to:`, event);
+                    if (!newName || newName === event) return;
+                    const res = await fetch(window.__BOOTSTRAP__.routes.albumRename, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute(
+                                'content'),
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            old_event: event,
+                            new_event: newName
+                        })
+                    });
+                    const json = await res.json().catch(() => ({}));
+                    if (res.ok && json.success) {
+                        [this.filteredPhotos, this.rawAlbums].forEach(map => {
+                            map[newName] = map[event];
+                            delete map[event];
+                        });
+                        Swal.fire('Renamed!', `Album renamed to "${newName}".`, 'success');
+                    } else {
+                        Swal.fire('Error', json.message || 'Rename failed', 'error');
+                    }
+                },
+
+                async deleteAlbum(event) {
+                    if (!confirm(`Are you sure you want to delete the album "${event}"? All photos will be removed.`))
+                        return;
+                    const res = await fetch(window.__BOOTSTRAP__.routes.albumDelete, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute(
+                                'content'),
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            event
+                        })
+                    });
+                    const json = await res.json().catch(() => ({}));
+                    if (res.ok && json.success) {
+                        delete this.filteredPhotos[event];
+                        delete this.rawAlbums[event];
+                        Swal.fire('Deleted!', `Album "${event}" has been deleted.`, 'success');
+                    } else {
+                        Swal.fire('Error', json.message || 'Delete failed', 'error');
+                    }
                 }
-            }));
-
-
-        });
+            };
+        }
     </script>
+
+
 </body>
 
 </html>

@@ -132,9 +132,18 @@ Route::get('/store/orders', [PurchaseController::class, 'orders'])->name('store.
 
 
 
-Route::get('/upload', [S3FileUploadController::class, 'showForm'])->name('upload.form');
-Route::post('/upload', [S3FileUploadController::class, 'upload'])->name('upload');
-Route::get('/photos', [S3FileUploadController::class, 'index'])->name('photos.index');
+Route::middleware(['auth'])->group(function () {
+    Route::get('/upload', [S3FileUploadController::class, 'showForm'])->name('upload.form');
 
+    // Upload API (multi-files)
+    Route::post('/upload', [S3FileUploadController::class, 'upload'])->name('upload.store');
+
+    // Photo actions
+    Route::delete('/photos/{photo}', [S3FileUploadController::class, 'destroy'])->name('photos.destroy');
+
+    // Album actions (event == album)
+    Route::patch('/albums/rename', [S3FileUploadController::class, 'renameAlbum'])->name('albums.rename');
+    Route::delete('/albums', [S3FileUploadController::class, 'deleteAlbum'])->name('albums.delete');
+});
 //search
 require __DIR__ . '/auth.php';
