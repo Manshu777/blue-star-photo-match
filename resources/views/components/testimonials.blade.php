@@ -83,8 +83,7 @@
                     @endforeach
                 </div>
                 <div class="swiper-pagination mt-6 sm:mt-8"></div>
-                <div class="swiper-button-prev hidden sm:block"></div>
-                <div class="swiper-button-next hidden sm:block"></div>
+               
             </div>
         </div>
     </div>
@@ -104,14 +103,7 @@
                         delay: 5000,
                         disableOnInteraction: false,
                     },
-                    pagination: {
-                        el: '.swiper-pagination',
-                        clickable: true,
-                    },
-                    navigation: {
-                        nextEl: '.swiper-button-next',
-                        prevEl: '.swiper-button-prev',
-                    },
+                  
                     breakpoints: {
                         320: { slidesPerView: 1 },
                         768: { slidesPerView: 2 },

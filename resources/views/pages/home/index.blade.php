@@ -1,17 +1,17 @@
 @extends('layouts.app')
 @section('title', 'Home - Blue Star Memory')
 @section('content')
-    <section class="relative">
+    <section class="relative ml">
         <!-- Hero Section -->
-        <div class="bg-gradient-to-br from-blue-600 via-blue-500 to-blue-400 text-white py-20 mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="max-w-7xl text-left mx-auto">
+        <div class="bg-gradient-to-br from-blue-600  to-blue-500 text-white py-20 mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="max-w-7xl  text-left mx-auto mt-10">
                 <h1 class="text-4xl md:text-6xl font-bold mb-8">
                     Find and Relive Your<br />
                     <span class="text-blue-100">Memories Instantly</span>
                 </h1>
 
                 <!-- Upload + Search Box -->
-                <div class="max-w-8xl mx-auto bg-white rounded-2xl shadow-2xl p-6 flex flex-col md:flex-row gap-6">
+                <div class="max-w-8xl mx-auto bg-white rounded-2xl  shadow-2xl p-6 flex items-center flex-col md:flex-row gap-6">
 
                     <!-- Upload Form -->
                     <div class="flex-1">
@@ -30,16 +30,7 @@
                                     <input type="file" id="selfieInput" name="selfie" accept="image/jpeg,image/png"
                                         class="hidden" required />
                                 </label>
-                            </div>
-                            <!-- Image Preview -->
-                            <div id="previewContainer"
-                                class="hidden mt-4 w-32 h-32 bg-gray-100 rounded-lg overflow-hidden relative">
-                                <img id="previewImage" src="#" alt="Preview" class="w-full h-full object-cover" />
-                            </div>
-                            <!-- Crop and Submit Buttons -->
-                            <div class="flex gap-3 mt-4">
-                                <!-- <button type="button" id="cropButton" class="hidden bg-yellow-500 text-white font-medium rounded-lg px-4 py-2 hover:bg-yellow-600 transition">Crop</button> -->
-                                <button type="submit" id="submitButton"
+                                    <button type="submit" id="submitButton"
                                     class="bg-blue-500 text-white font-medium rounded-lg px-4 py-2 hover:bg-blue-600 transition flex items-center">
                                     <span id="submitText">Search</span>
                                     <svg id="loadingSpinner" class="hidden animate-spin h-5 w-5 text-white ml-2"
@@ -52,6 +43,13 @@
                                     </svg>
                                 </button>
                             </div>
+                            <!-- Image Preview -->
+                            <div id="previewContainer"
+                                class="hidden mt-4 w-32 h-32 bg-gray-100 rounded-lg overflow-hidden relative">
+                                <img id="previewImage" src="#" alt="Preview" class="w-full h-full object-cover" />
+                            </div>
+                            <!-- Crop and Submit Buttons -->
+                           
                             @error('selfie')
                                 <p class="text-red-500 text-sm mt-2">{{ $message }}</p>
                             @enderror
@@ -75,17 +73,19 @@
             </div>
         </div>
 
-        <section class="py-8 lg:py-16 w-full ">
+        <section class="py-8 lg:py-16 w-full absolute top-[350px]  ">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-8">
                     <div class="text-center group hover:transform hover:scale-105 transition-all duration-300">
                         <div
                             class="bg-blue-50 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow duration-300">
-                            <svg class="h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none"
-                                viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
+                          <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600" fill="currentColor" viewBox="0 0 24 24" >
+    <circle cx="12" cy="12" r="10" />
+    <circle cx="15" cy="10" r="1.5" fill="white"/>
+    <path d="M7 10 q2 -2 4 0" stroke="white" stroke-width="2" fill="none" />
+    <path d="M8 15 q4 3 8 0" stroke="white" stroke-width="2" fill="none" />
+</svg>
+
                         </div>
                         <h3 class="text-lg font-semibold text-gray-900 mb-2">Face Detection</h3>
                         <p class="text-gray-600 text-sm leading-relaxed">Advanced AI technology to identify faces in photos
@@ -94,11 +94,11 @@
                     <div class="text-center group hover:transform hover:scale-105 transition-all duration-300">
                         <div
                             class="bg-blue-50 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow duration-300">
-                            <svg class="h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none"
-                                viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M4 5h16M4 12h16M4 19h16" />
-                            </svg>
+                         <div class="flex -space-x-2">
+  <x-heroicon-s-photo class="w-10 h-10 text-blue-600" />
+
+</div>
+
                         </div>
                         <h3 class="text-lg font-semibold text-gray-900 mb-2">Photo Grouping</h3>
                         <p class="text-gray-600 text-sm leading-relaxed">Automatically organize photos by events and people
@@ -107,11 +107,9 @@
                     <div class="text-center group hover:transform hover:scale-105 transition-all duration-300">
                         <div
                             class="bg-blue-50 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow duration-300">
-                            <svg class="h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none"
-                                viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M3 9l9-7 9 7v10a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                            </svg>
+                            <x-heroicon-s-funnel class="w-9 h-9 text-blue-600" />
+                           
+
                         </div>
                         <h3 class="text-lg font-semibold text-gray-900 mb-2">AR Filters</h3>
                         <p class="text-gray-600 text-sm leading-relaxed">Enhance your memories with augmented reality</p>
@@ -119,11 +117,11 @@
                     <div class="text-center group hover:transform hover:scale-105 transition-all duration-300">
                         <div
                             class="bg-blue-50 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow duration-300">
-                            <svg class="h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none"
-                                viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M3 15a4 4 0 004 4h9a4 4 0 004-4M5 9h14M7 12h10" />
-                            </svg>
+                          <div class="relative inline-block">
+    <x-heroicon-s-cloud class="w-10 h-10 text-blue-600" />
+    <x-heroicon-s-lock-closed class="w-6 h-6 text-blue-400 absolute bottom-0 right-0" />
+</div>
+
                         </div>
                         <h3 class="text-lg font-semibold text-gray-900 mb-2">Secure Cloud</h3>
                         <p class="text-gray-600 text-sm leading-relaxed">Your memories are safe with enterprise-grade

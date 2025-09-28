@@ -1,4 +1,4 @@
-<section id="how-it-works" class="py-20 mt-5  bg-white">
+<section id="how-it-works" class="py-20 mt-[100px]  bg-white">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h2 class="text-3xl md:text-4xl font-bold text-gray-900 text-center lg:text-left mb-16">
             How It Works
@@ -35,19 +35,13 @@
                             {{ $step['number'] }}
                         </div>
                         <div class="bg-blue-50 rounded-2xl p-6 group-hover:bg-blue-100 transition-colors duration-300">
-                            @if ($step['number'] == 1)
-                                <svg class="h-12 w-12 text-blue-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                </svg>
-                            @elseif ($step['number'] == 2)
-                                <svg class="h-12 w-12 text-blue-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z M9 10h.01M15 10h.01" />
-                                </svg>
-                            @elseif ($step['number'] == 3)
-                                <svg class="h-12 w-12 text-blue-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                </svg>
-                            @endif
+                           @if ($step['number'] == 1)
+    <x-heroicon-s-arrow-up-tray class="h-12 w-12 text-blue-600 mx-auto mb-4" />
+@elseif ($step['number'] == 2)
+    <x-heroicon-s-face-smile class="h-12 w-12 text-blue-600 mx-auto mb-4" />
+@elseif ($step['number'] == 3)
+    <x-heroicon-s-arrow-down-tray class="h-12 w-12 text-blue-600 mx-auto mb-4" />
+@endif
                         </div>
                     </div>
                     <h3 class="text-xl font-bold text-gray-900 mb-1">{{ $step['title'] }}</h3>

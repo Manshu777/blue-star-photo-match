@@ -107,14 +107,7 @@
                         delay: 3000,
                         disableOnInteraction: false,
                     },
-                    pagination: {
-                        el: '.swiper-pagination',
-                        clickable: true,
-                    },
-                    navigation: {
-                        nextEl: '.swiper-button-prev',
-                        prevEl: '.swiper-button-next',
-                    },
+                   
                     breakpoints: {
                         320: { slidesPerView: 1 },
                         1024: { slidesPerView: 2 },
