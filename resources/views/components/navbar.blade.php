@@ -54,7 +54,7 @@
     </div>
 
     <!-- Mobile Menu -->
-    <div x-show="menuOpen" x-transition class="lg:hidden bg-white shadow-md px-4 pb-4 space-y-3">
+    <div x-show="menuOpen" x-transition class="lg:hidden bg-blue-700 rounded-2xl p-4 shadow-md px-4 pb-4 space-y-3">
         <a href="{{ route('home') }}" class="block text-white font-semibold hover:text-blue-600">Home</a>
         <a href="/product" class="text-white font-semibold hover:text-blue-600">Products</a>
         <a href="{{ route('about') }}" class="block text-white font-semibold hover:text-blue-600">About</a>
